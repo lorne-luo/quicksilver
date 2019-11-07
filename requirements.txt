@@ -5,3 +5,5 @@ py==1.4.34
 pytest==3.2.3
 environs==6.0.0
 redis==3.3.11
+git+https://github.com/lorne-luo/falcon.git
+git+https://github.com/lorne-luo/JARVIS.git

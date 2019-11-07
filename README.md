@@ -14,6 +14,11 @@ Run the application:
 $ python -m quicksilver --help
 ```
 
+Run test runner:
+```
+python -m runner.runner
+```
+
 To run the tests:
 ```
     $ pytest
