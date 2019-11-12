@@ -58,7 +58,7 @@ class BaseRunner(object):
 
     def loop_end(self):
         # heartbeat event
-        if time.time() - self.last_heartbeat > self.heartbeat:
+        if self.heartbeat > 0 and time.time() - self.last_heartbeat > self.heartbeat:
             self.heartbeat_count += 1
             self.put_event(HeartBeatEvent(self.heartbeat_count))
             self.last_heartbeat = time.time()

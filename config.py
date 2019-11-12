@@ -2,7 +2,7 @@ from environs import Env
 
 env = Env()
 
-env.read_env('.env')
+env.read_env() # will read default .env file in root
 
 DEBUG = env.bool('DEBUG', True)
 

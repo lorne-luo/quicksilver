@@ -1,4 +1,5 @@
 import logging
+from queue import Queue
 
 from redis_queue.queue import RedisQueue
 from runner.base import BaseRunner
@@ -6,8 +7,15 @@ from runner.base import BaseRunner
 logger = logging.getLogger(__name__)
 
 
+
+class MemoryQueueRunner(BaseRunner):
+    """Memory queue runner"""
+
+    def create_queue(self, queue_name):
+        return Queue(maxsize=2000)
+
 class ReisQueueRunner(BaseRunner):
-    """Base runner"""
+    """Redis queue runner"""
 
     def create_queue(self, queue_name):
         return RedisQueue(queue_name)
@@ -54,3 +62,4 @@ if __name__ == '__main__':
                         HeartBeatHandler(),
                         TimeFramePublisher(timezone=0))
     r.run()
+
