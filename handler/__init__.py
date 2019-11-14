@@ -2,13 +2,13 @@ import logging
 from datetime import datetime
 
 from dateutil.relativedelta import relativedelta
-from falcon.base.market import is_market_open
-from falcon.base.timeframe import PERIOD_CHOICES, get_candle_time, PERIOD_H1
+from falcon.base.timeframe import PERIOD_CHOICES, get_candle_time, PERIOD_H1, PERIOD_TICK
 from falcon.event import DebugEvent, TickPriceEvent, HeartBeatEvent, TimeFrameEvent, TradeOpenEvent, TradeCloseEvent
-# from jarvis.rpyc.client import JarvisClient
 
 import config
 from redis_queue import runtime
+
+# from jarvis.rpyc.client import JarvisClient
 
 logger = logging.getLogger(__name__)
 
@@ -75,39 +75,41 @@ class HeartBeatHandler(BaseHandler):
 
 class TimeFramePublisher(BaseHandler):
     subscription = [HeartBeatEvent.type, TickPriceEvent.type]
-    candle_time = {}
-    market_open = False
     timezone = 0
 
     def __init__(self, timezone=0):
         self.timezone = timezone
-        self.market_open = is_market_open()
-        now = self.get_now()
-        for timeframe in PERIOD_CHOICES:
-            self.candle_time[timeframe] = get_candle_time(now, timeframe)
-
-    def is_nfp(self):
-        # is day of USA NFP
-        pass
 
     def get_now(self):
         now = datetime.utcnow() + relativedelta(hours=self.timezone)
         return now
 
     def process(self, event, context):
-        now = self.get_now()
+        if isinstance(event, TickPriceEvent):
+            context.candle_time[PERIOD_TICK] = event.time
+            now = event.time
+        else:
+            # by HeartBeatEvent
+            now = datetime.utcnow() + relativedelta(hours=self.timezone)
+
         for timeframe in PERIOD_CHOICES:
-            new = get_candle_time(now, timeframe)
-            if self.candle_time[timeframe] != new:
-                event = TimeFrameEvent(timeframe, new, self.candle_time[timeframe], self.timezone, now)
-                print(f'TimeFramePublisher {event.__dict__}')
-                context.put_event(event)
-                # print(self.candle_time[timeframe], new)
-                self.candle_time[timeframe] = new
+            new_candle_time = get_candle_time(now, timeframe)
+            if not context.candle_time[timeframe]:
+                context.candle_time[timeframe] = new_candle_time
+                continue
+
+            if context.candle_time[timeframe] != new_candle_time:
+                timeframe_event = TimeFrameEvent(timeframe=timeframe,
+                                                 current=new_candle_time,
+                                                 previous=context.candle_time[timeframe],
+                                                 timezone=self.timezone,
+                                                 time=now)
+                print(f'[TimeFramePublisher] {timeframe_event.__dict__}')
+                context.candle_time[timeframe] = new_candle_time
+                context.put_event(timeframe_event)
 
                 if timeframe == PERIOD_H1:
-                    last_tick = runtime.get_last_tick()
-                    logger.info('TimeFrame H1 , market_open=%s, last_tick=%s' % (self.market_open, last_tick))
+                    logger.info(f'TimeFrame H1 , last_tick={context.last_tick}')
 
 
 # class PriceAlertHandler(BaseHandler):

@@ -1,12 +1,12 @@
 import logging
 from decimal import Decimal
+from pprint import pprint
 from queue import Queue
 
 from falcon.base.time import str_to_datetime
 from falcon.base.timeframe import PERIOD_M1
 from falcon.event import TickPriceEvent
 
-from backtest.handler import BacktestTickPriceHandler
 from base.strategy import StrategyBase
 from handler import TickPriceHandler
 from runner.runner import MemoryQueueRunner
@@ -74,7 +74,9 @@ class BacktestRunner(MemoryQueueRunner):
 
     def stop(self):
         self.data_file_handler.close()
+        print('=' * 40)
         print(f'{self.line_count} lines processed.')
+        pprint(runner.candle_time)
         super(BacktestRunner, self).stop()
 
 
@@ -107,4 +109,6 @@ if __name__ == '__main__':
     runner.print_step = 1
     print(runner.get_handler_by_type(DebugTickPriceHandler))
     print(runner.strategies)
+
     runner.run()
+

@@ -5,38 +5,46 @@ import time
 import traceback
 
 from falcon.base.event import BaseEvent
+from falcon.base.timeframe import PERIOD_TICK, PERIOD_CHOICES
 from falcon.event import HeartBeatEvent
 
 import config
 from base.strategy import StrategyBase
-from handler import BaseHandler
+from handler import BaseHandler, TimeFramePublisher
 
 logger = logging.getLogger(__name__)
 
 
 class BaseRunner(object):
+    candle_time = {}
+    running = False
+    halt = False
+    heartbeat_count = 0
+    handlers = [TimeFramePublisher()]
 
     def __init__(self, queue_name, accounts, *args, **kwargs):
         self.loop_sleep = config.LOOP_SLEEP
         self.empty_sleep = config.EMPTY_SLEEP
         self.heartbeat = config.HEARTBEAT
-
-        self.running = False
-        self.halt = False
-        self.heartbeat_count = 0
         self.last_heartbeat = time.time()
 
         self.accounts = accounts if type(accounts) is list else [accounts]
         self.queue_name = queue_name
         self.queue = self.create_queue(queue_name)
-
-        self.handlers = []
         self.register(*args)
+
+        self.candle_time[PERIOD_TICK] = None
+        for timeframe in PERIOD_CHOICES:
+            self.candle_time[timeframe] = None
 
     def stop(self):
         del self.queue
         self.running = False
         sys.exit(0)
+
+    @property
+    def last_tick(self):
+        return self.candle_time[PERIOD_TICK]
 
     def create_queue(self, queue_name):
         raise NotImplementedError
