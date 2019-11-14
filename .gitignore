@@ -30,6 +30,7 @@ pip-log.txt
 .mr.developer.cfg
 
 .idea/
+.cache/
 data/
 log/
 logs/

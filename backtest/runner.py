@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class BacktestRunner(MemoryQueueRunner):
     """Backtest runner"""
+    print_step = 10
 
     def create_queue(self, queue_name):
         self.test_data_path = queue_name
@@ -28,7 +29,8 @@ class BacktestRunner(MemoryQueueRunner):
         line = self.data_file_handler.readline()
         if line:
             self.line_count += 1
-            print(f'#{self.line_count} TickPriceEvent')
+            if not self.line_count % self.print_step:
+                print(f'#{self.line_count} TickPriceEvent')
             return self.line_to_event(line)
         else:
             self.stop()
@@ -73,17 +75,18 @@ class BacktestRunner(MemoryQueueRunner):
         super(BacktestRunner, self).stop()
 
 
-class BacktestTickPriceHandler(TickPriceHandler):
-    subscription = [TickPriceEvent.type]
 
-    def process(self, event, context):
-        print('# BacktestTickPriceHandler')
-        # pprint(event.__dict__)
 
 
 if __name__ == '__main__':
-    # python -m event.runner
+    # python -m backtest.runner
+
+    class DebugTickPriceHandler(TickPriceHandler):
+        subscription = [TickPriceEvent.type]
+
+        def process(self, event, context):
+            print(f'# BacktestTickPriceHandler {event.time}')
 
     r = BacktestRunner('./tests/test_tick.txt', [],
-                       BacktestTickPriceHandler())
+                       DebugTickPriceHandler())
     r.run()
