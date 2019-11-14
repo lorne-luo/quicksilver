@@ -7,3 +7,4 @@ redis
 git+https://github.com/lorne-luo/falcon.git
 git+https://github.com/lorne-luo/hulk.git
 git+https://github.com/lorne-luo/JARVIS.git
+TA-lib
