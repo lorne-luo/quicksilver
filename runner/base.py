@@ -8,6 +8,7 @@ from falcon.base.event import BaseEvent
 from falcon.event import HeartBeatEvent
 
 import config
+from base.strategy import StrategyBase
 from handler import BaseHandler
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,20 @@ class BaseRunner(object):
             for item in traceback.StackSummary.from_list(extracted_list).format()[:8]:
                 logger.error(item.strip())
             self.handle_error(ex)
+
+    def get_handler_by_type(self, handler_class):
+        return [x for x in self.handlers if isinstance(x, handler_class)]
+
+    @property
+    def strategies(self):
+        return self.get_handler_by_type(StrategyBase)
+
+    def get_timeframes(self):
+        timeframes = set()
+        for s in self.strategies:
+            for t in s.timeframes:
+                timeframes.add(t)
+        return timeframes
 
     def run(self):
         self.launch()

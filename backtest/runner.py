@@ -1,4 +1,5 @@
 import logging
+import sys
 from decimal import Decimal
 from queue import Queue
 
@@ -14,16 +15,16 @@ logger = logging.getLogger(__name__)
 class BacktestRunner(MemoryQueueRunner):
     """Backtest runner"""
     print_step = 10
+    prices = []
+    line_count = 0
+    loop_sleep = 0
+    empty_sleep = 0
+    heartbeat = 0
 
     def create_queue(self, queue_name):
         self.test_data_path = queue_name
         self.data_file_handler = open(self.test_data_path)
-        self.line_count = 0
-        # disable any sleep
-        self.loop_sleep = 0
-        self.empty_sleep = 0
-        self.heartbeat = 0
-        return Queue(maxsize=2000)
+        return Queue()
 
     def yield_event(self, block=False):
         line = self.data_file_handler.readline()
@@ -75,18 +76,21 @@ class BacktestRunner(MemoryQueueRunner):
         super(BacktestRunner, self).stop()
 
 
-
-
-
 if __name__ == '__main__':
-    # python -m backtest.runner
+    """
+    python -m backtest.runner
+    """
+
 
     class DebugTickPriceHandler(TickPriceHandler):
         subscription = [TickPriceEvent.type]
 
         def process(self, event, context):
-            print(f'# BacktestTickPriceHandler {event.time}')
+            print(f'# BacktestTickPriceHandler {sys.getsizeof(event)}')
 
-    r = BacktestRunner('./tests/test_tick.txt', [],
-                       DebugTickPriceHandler())
-    r.run()
+
+    runner = BacktestRunner('./tests/test_tick.txt', [],
+                            DebugTickPriceHandler())
+    print(runner.get_handler_by_type(DebugTickPriceHandler))
+    print(runner.strategies)
+    runner.run()
