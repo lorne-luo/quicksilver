@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from falcon.event import TimeFrameEvent, OrderHoldingEvent, StartUpEvent
+from falcon.event import TimeFrameEvent, OrderHoldingEvent, StartUpEvent, TickPriceEvent
 
 from handler import BaseHandler
 
@@ -31,18 +31,14 @@ class StrategyBase(BaseHandler):
     def __str__(self):
         return '%s v%s #%s' % (self.name, self.version, self.magic_number)
 
-    def __init__(self, queue, reader, *args, **kwargs):
-        super(StrategyBase, self).__init__(queue)
-        self.data_reader = reader
-
-    def signal(self):
+    def signal(self, event, context):
         for symbol in self.pairs:
             try:
-                self.signal_pair(symbol)
+                self.signal_pair(symbol, event, context)
             except Exception as ex:
                 logger.error(f'[STRATEGY_SIGNAL] {symbol}={ex}')
 
-    def signal_pair(self, symbol):
+    def signal_pair(self, symbol, event, context):
         raise NotImplementedError
 
     def can_open(self):
@@ -54,12 +50,14 @@ class StrategyBase(BaseHandler):
         return True
 
     def process(self, event, context):
-        if event.type == TimeFrameEvent.type and event.timeframe in self.timeframes:
-            self.signal()
+        if event.type == TickPriceEvent.type:
+            self.signal(event, context)
+        elif event.type == TimeFrameEvent.type and event.timeframe in self.timeframes:
+            self.signal(event, context)
         elif event.type == OrderHoldingEvent.type:
-            self.signal()
+            self.signal(event, context)
         elif event.type == StartUpEvent.type:
-            self.signal()
+            self.signal(event, context)
 
     def send_event(self, event, context):
         context.put_event(event)

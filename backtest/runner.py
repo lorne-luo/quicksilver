@@ -1,11 +1,13 @@
 import logging
-import sys
 from decimal import Decimal
 from queue import Queue
 
 from falcon.base.time import str_to_datetime
+from falcon.base.timeframe import PERIOD_M1
 from falcon.event import TickPriceEvent
 
+from backtest.handler import BacktestTickPriceHandler
+from base.strategy import StrategyBase
 from handler import TickPriceHandler
 from runner.runner import MemoryQueueRunner
 
@@ -78,6 +80,7 @@ class BacktestRunner(MemoryQueueRunner):
 
 if __name__ == '__main__':
     """
+    run example:
     python -m backtest.runner
     """
 
@@ -86,11 +89,22 @@ if __name__ == '__main__':
         subscription = [TickPriceEvent.type]
 
         def process(self, event, context):
-            print(f'# BacktestTickPriceHandler {sys.getsizeof(event)}')
+            print(f'# BacktestTickPriceHandler')
+
+
+    class DebugStrategy(StrategyBase):
+        timeframes = [PERIOD_M1]
+        subscription = [TickPriceEvent.type]
+        pairs = ['GBPUSD']
+
+        def signal_pair(self, symbol, event, context):
+            pass
 
 
     runner = BacktestRunner('./tests/test_tick.txt', [],
-                            DebugTickPriceHandler())
+                            # DebugTickPriceHandler(),
+                            DebugStrategy())
+    runner.print_step = 1
     print(runner.get_handler_by_type(DebugTickPriceHandler))
     print(runner.strategies)
     runner.run()
