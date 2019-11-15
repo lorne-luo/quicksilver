@@ -39,3 +39,4 @@ env/
 venv/
 .env
 *.rdb
+*.csv

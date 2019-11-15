@@ -16,6 +16,7 @@ class BacktestTickPriceHandler(TimeFramePublisher):
         if isinstance(event, TickPriceEvent):
             context.candle_time[PERIOD_TICK] = event.time
             now = event.time
+            self.enqueue_tick(event, context)
         else:
             # by HeartBeatEvent
             now = datetime.utcnow() + relativedelta(hours=self.timezone)
@@ -35,7 +36,7 @@ class BacktestTickPriceHandler(TimeFramePublisher):
                                                  previous=context.candle_time[timeframe],
                                                  timezone=self.timezone,
                                                  time=now)
-                print(f'[TimeFramePublisher] {timeframe_event.__dict__}')
+                # print(f'[TimeFramePublisher] {timeframe_event.__dict__}')
                 context.candle_time[timeframe] = new_candle_time
                 context.put_event(timeframe_event)
 
@@ -43,12 +44,12 @@ class BacktestTickPriceHandler(TimeFramePublisher):
         timeframe_ohlc = context.ohlc[timeframe]
         if not len(timeframe_ohlc):
             # empty, add new ohlc
-            self.add_new_ohlc(timeframe_ohlc, candle_time, event)
+            self.add_new_ohlc(timeframe_ohlc, candle_time, event, context)
         else:
             ohlc = timeframe_ohlc[-1]
             if candle_time != ohlc['time']:
                 # candle time updated, add new ohlc
-                self.add_new_ohlc(timeframe_ohlc, candle_time, event)
+                self.add_new_ohlc(timeframe_ohlc, candle_time, event, context)
             else:
                 # candle time not update
                 if event.ask > ohlc['high_ask']:
@@ -63,14 +64,27 @@ class BacktestTickPriceHandler(TimeFramePublisher):
                 ohlc['close_bid'] = event.bid
                 ohlc['close_ask'] = event.ask
 
-    def add_new_ohlc(self, timeframe_ohlc, candle_time, event):
-        timeframe_ohlc.append({'time': candle_time,
-                               'open_ask': event.ask,
-                               'open_bid': event.bid,
-                               'high_ask': event.ask,
-                               'high_bid': event.bid,
-                               'low_ask': event.ask,
-                               'low_bid': event.bid,
-                               'close_ask': event.ask,
-                               'close_bid': event.bid,
-                               })
+    def add_new_ohlc(self, timeframe_ohlc, candle_time, event, context):
+        ohlc_data = {'time': candle_time,
+                     'open_ask': event.ask,
+                     'open_bid': event.bid,
+                     'high_ask': event.ask,
+                     'high_bid': event.bid,
+                     'low_ask': event.ask,
+                     'low_bid': event.bid,
+                     'close_ask': event.ask,
+                     'close_bid': event.bid,
+                     }
+        if len(timeframe_ohlc) < context.max_ohlc_keep:
+            timeframe_ohlc.append(ohlc_data)
+        else:
+            timeframe_ohlc.pop(0)
+            timeframe_ohlc.append(ohlc_data)
+
+    def enqueue_tick(self, event, context):
+        tick_queue = context.ohlc[PERIOD_TICK]
+        if len(tick_queue) < context.max_tick_keep:
+            tick_queue.append(event)
+        else:
+            tick_queue.pop(0)
+            tick_queue.append(event)

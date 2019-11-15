@@ -1,11 +1,12 @@
 import logging
 from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
-from pprint import pprint
 from queue import Queue
 
 from falcon.base.time import str_to_datetime
-from falcon.base.timeframe import PERIOD_M1, PERIOD_CHOICES
+from falcon.base.timeframe import PERIOD_M1, PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4, \
+    PERIOD_D1, PERIOD_W1, PERIOD_TICK
 from falcon.event import TickPriceEvent
 
 from backtest.handler import BacktestTickPriceHandler
@@ -18,13 +19,22 @@ logger = logging.getLogger(__name__)
 
 class BacktestRunner(MemoryQueueRunner):
     """Backtest runner"""
-    print_step = 10
-    ohlc = defaultdict(list)
+    print_step = 10000
+
     line_count = 0
     loop_sleep = 0
     empty_sleep = 0
     heartbeat = 0
+    start_time = None
+
     handlers = [BacktestTickPriceHandler()]
+    ohlc = defaultdict(list)
+    max_tick_keep = 2000
+    max_ohlc_keep = 50
+
+    def __init__(self, queue_name, accounts, *args, **kwargs):
+        super(BacktestRunner, self).__init__(queue_name, accounts, *args, **kwargs)
+        self.start_time = datetime.utcnow()
 
     def create_queue(self, queue_name):
         self.test_data_path = queue_name
@@ -36,7 +46,7 @@ class BacktestRunner(MemoryQueueRunner):
         if line:
             self.line_count += 1
             if not self.line_count % self.print_step:
-                print(f'#{self.line_count} TickPriceEvent')
+                print(f'# {self.line_count} TickPriceEvent processed.')
             return self.line_to_event(line)
         else:
             self.stop()
@@ -79,8 +89,13 @@ class BacktestRunner(MemoryQueueRunner):
         self.data_file_handler.close()
         print('=' * 40)
         print(f'{self.line_count} lines processed.')
-        # pprint(runner.candle_time)
-        # pprint(runner.ohlc)
+        print(f'{len(self.ohlc[PERIOD_TICK])} lines processed.')
+        # pprint(self.candle_time)
+        print(self.ohlc[PERIOD_TICK][-1])
+        print(
+            f'PERIOD_M1={len(runner.ohlc[PERIOD_M1])}\nPERIOD_M5={len(runner.ohlc[PERIOD_M5])}\nPERIOD_M15={len(runner.ohlc[PERIOD_M15])}\nPERIOD_M30={len(runner.ohlc[PERIOD_M30])}\nPERIOD_H1={len(runner.ohlc[PERIOD_H1])}\nPERIOD_H4={len(runner.ohlc[PERIOD_H4])}\nPERIOD_D1={len(runner.ohlc[PERIOD_D1])}\nPERIOD_W1={len(runner.ohlc[PERIOD_W1])}')
+
+        print(f'Time spend {datetime.utcnow()-self.start_time}')
         super(BacktestRunner, self).stop()
 
 
@@ -107,12 +122,13 @@ if __name__ == '__main__':
             pass
 
 
-    runner = BacktestRunner('./tests/test_tick.txt', [],
+    # ./tests/test_tick.csv
+    # ./tests/GBPUSD-2018-12-tick.csv
+
+    runner = BacktestRunner('./tests/test_tick.csv', [],
                             # DebugTickPriceHandler(),
                             DebugStrategy())
-    runner.print_step = 1
     print(runner.get_handler_by_type(DebugTickPriceHandler))
     print(runner.strategies)
 
     runner.run()
-

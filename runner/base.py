@@ -43,7 +43,7 @@ class BaseRunner(object):
         sys.exit(0)
 
     @property
-    def last_tick(self):
+    def last_tick_time(self):
         return self.candle_time[PERIOD_TICK]
 
     def create_queue(self, queue_name):
