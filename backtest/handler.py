@@ -31,7 +31,7 @@ class BacktestTickPriceHandler(TimeFramePublisher):
 
             if context.candle_time[timeframe] != new_candle_time:
                 timeframe_event = TimeFrameEvent(timeframe=timeframe,
-                                                 current=new_candle_time,
+                                                 current_time=new_candle_time,
                                                  previous=context.candle_time[timeframe],
                                                  timezone=self.timezone,
                                                  time=now)
