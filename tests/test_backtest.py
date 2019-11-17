@@ -13,4 +13,4 @@ def test_testback():
     assert order.pips == 0
 
     order.current_price = Decimal('1.32552')
-    assert order.pips == 10.2
+    assert order.pips == Decimal('10.2')
