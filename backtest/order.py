@@ -1,11 +1,11 @@
-from falcon.base.order import OrderSide, OrderType
+from falcon.base.order import OrderSide, OrderType, lots_to_units
 from falcon.base.price import profit_pip
 from hulk.base.models import OrderBase
 
 
 class BacktestOrder:
 
-    def __init__(self, order_id, instrument, open_time, side, lots, open_price, take_profit, stop_loss ):
+    def __init__(self, order_id, instrument, open_time, side, lots, open_price, take_profit, stop_loss):
         self.order_type = OrderType.MARKET
         self.order_id = order_id
         self.instrument = instrument
@@ -22,15 +22,7 @@ class BacktestOrder:
         self.close_time = None
         self.note = ''
 
-        # ['orderId', 'time', 'accountName',
-        #  'accountId', 'timeInForce', 'currency', 'isBuy', 'buy',
-        #  'sell', 'type', 'status', 'amountK', 'currencyPoint',
-        #  'stopMove', 'stop', 'stopRate', 'limit', 'limitRate',
-        #  'isEntryOrder', 'ocoBulkId', 'isNetQuantity',
-        #  'isLimitOrder', 'isStopOrder', 'isELSOrder',
-        #  'stopPegBaseType', 'limitPegBaseType', 'range',
-        #  'expireDate']
-
+    @property
     def is_closed(self):
         return bool(self.close_price)
 
@@ -40,8 +32,20 @@ class BacktestOrder:
             return profit_pip(self.instrument, self.open_price, self.close_price, self.side)
         return profit_pip(self.instrument, self.open_price, self.current_price, self.side)
 
+    @property
+    def profit(self):
+        if self.is_closed:
+            return self.pips * self.lots * 10
+        return None
+
 
 class BacktestOrderMixin(OrderBase):
+    _order_sequence = 0
+    _orders = {}
+
+    def generate_order_id(self):
+        self._order_sequence += 1
+        return self._order_sequence
 
     def list_order(self, ids=None, state=None, instrument=None, count=20, beforeID=None):
         raise NotImplementedError
@@ -50,7 +54,7 @@ class BacktestOrderMixin(OrderBase):
         raise NotImplementedError
 
     def get_order(self, order_id):
-        raise NotImplementedError
+        return self._orders
 
     def limit_order(self, instrument, side, price, lots, take_profit=None, stop_loss=None, trailing_pip=None, **kwargs):
         raise NotImplementedError

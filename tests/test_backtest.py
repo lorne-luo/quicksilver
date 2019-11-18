@@ -14,3 +14,9 @@ def test_testback():
 
     order.current_price = Decimal('1.32552')
     assert order.pips == Decimal('10.2')
+
+    order.close_price = None
+    assert not order.is_closed
+
+    order.close_price = Decimal('1.32552')
+    assert order.is_closed
