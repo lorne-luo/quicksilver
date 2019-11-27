@@ -1,4 +1,6 @@
-from falcon.base.order import OrderSide, OrderType, lots_to_units
+from datetime import timedelta
+
+from falcon.base.order import OrderSide, OrderType
 from falcon.base.price import profit_pip
 from hulk.base.models import OrderBase
 
@@ -21,6 +23,9 @@ class BacktestOrder:
         self.close_price = None
         self.close_time = None
         self.note = ''
+        self.max_profit = 0
+        self.min_profit = 0
+        self.profit_time = timedelta(seconds=0)
 
     @property
     def is_closed(self):
@@ -38,23 +43,27 @@ class BacktestOrder:
             return self.pips * self.lots * 10
         return None
 
+    def update_price(self, new_price):
+        self.current_price = new_price
+        # todo update max_profit, min_profit, profit_time
+
 
 class BacktestOrderMixin(OrderBase):
     _order_sequence = 0
     _orders = {}
 
-    def generate_order_id(self):
+    def _generate_order_id(self):
         self._order_sequence += 1
         return self._order_sequence
 
     def list_order(self, ids=None, state=None, instrument=None, count=20, beforeID=None):
-        raise NotImplementedError
+        return self._orders
 
     def list_pending_order(self):
-        raise NotImplementedError
+        return {}
 
     def get_order(self, order_id):
-        return self._orders
+        return self._orders.get(int(order_id))
 
     def limit_order(self, instrument, side, price, lots, take_profit=None, stop_loss=None, trailing_pip=None, **kwargs):
         raise NotImplementedError
@@ -90,7 +99,14 @@ class BacktestOrderMixin(OrderBase):
                                take_profit=take_profit, stop_loss=stop_loss, trailing_pip=trailing_pip, **kwargs)
 
     def market_order(self, instrument, side, lots, take_profit=None, stop_loss=None, trailing_pip=None, **kwargs):
-        raise NotImplementedError
+        order_id = self._generate_order_id()
+        tick = kwargs.get('tick')
+        open_time = tick.time
+        open_price = tick.ask if side == OrderSide.BUY else tick.bid
+        order = BacktestOrder(order_id, instrument, open_time, side, lots, open_price, take_profit, stop_loss)
+
+        self._orders[order_id] = order
+        return order
 
     def take_profit(self, trade_id, price, **kwargs):
         raise NotImplementedError
