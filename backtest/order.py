@@ -41,14 +41,11 @@ class BacktestOrder:
 
     @property
     def profit(self):
-        if self.is_closed:
-            return self.pips * self.lots * 10
-        return None
+        return self.pips * self.lots * 10
 
     def update_price(self, tick):
         if not tick.instrument == self.instrument:
             return
-        # todo update max_profit, min_profit, profit_time
 
         if self.side == OrderSide.BUY:
             self.current_price = tick.bid
@@ -87,6 +84,7 @@ class BacktestOrder:
             self.close_price = tick.bid
         elif self.side == OrderSide.SELL:
             self.close_price = tick.ask
+
 
 
 class BacktestOrderMixin(OrderBase):
@@ -175,3 +173,8 @@ class BacktestOrderMixin(OrderBase):
         order = self.orders.get(order_id)
         if order:
             order.close(tick)
+
+    def update_tick(self, tick):
+        for order_id, order in self.orders.items():
+            if order.instrument == tick.instrument:
+                order.update_price(tick)

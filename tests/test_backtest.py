@@ -2,10 +2,13 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from falcon.base.order import OrderSide
+from falcon.base.time import str_to_datetime
+from falcon.base.timeframe import PERIOD_M1, PERIOD_M30, PERIOD_H4, PERIOD_H1, PERIOD_D1
 from falcon.event import TickPriceEvent
 
 from backtest.account import BacktestAccount
 from backtest.order import BacktestOrder
+from backtest.runner import BacktestRunner
 
 
 def test_order():
@@ -86,4 +89,37 @@ def test_account():
     assert order.total_time.seconds == 4
     assert order.profit_time.seconds == 2
     assert order.profit_time_percent == 50
+    assert order.profit == -33
 
+
+def test_runner():
+    test_time_format = '%Y%m%d %H:%M:%S.%f'
+    account = BacktestAccount()
+    tick = TickPriceEvent(broker='Back test broker',
+                          instrument='GBPUSD',
+                          time=str_to_datetime('20181203 04:41:31.577', test_time_format),
+                          bid=Decimal('1.27724'),
+                          ask=Decimal('1.27732'))
+
+    account.market_order('GBPUSD', OrderSide.BUY, 0.1, take_profit=33, stop_loss=22, trailing_pip=20, tick=tick)
+
+    runner = BacktestRunner('./tests/test_tick.csv', [account])
+    runner.run()
+    assert runner.line_count == 49
+    order = account.get_order('1')
+
+    assert order.open_time.strftime(test_time_format) == '20181203 04:41:31.577000'
+    assert order.current_time.strftime(test_time_format) == '20181203 04:43:32.577000'
+    assert order.current_price == Decimal('1.27728')
+    assert order.open_price == Decimal('1.27732')
+    assert order.profit_time_percent > 1
+    assert order.profit_time.seconds > 1
+    assert order.current_time - order.open_time == order.total_time
+    assert order.max_profit > 0
+    assert order.min_profit < 0
+
+    assert len(runner.ohlc[PERIOD_M1]) == 3
+    assert len(runner.ohlc[PERIOD_M30]) == 1
+    assert len(runner.ohlc[PERIOD_H4]) == 1
+    assert len(runner.ohlc[PERIOD_H1]) == 1
+    assert len(runner.ohlc[PERIOD_D1]) == 1

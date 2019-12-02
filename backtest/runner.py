@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from queue import Queue
 
+from falcon.base.symbol import get_mt4_symbol
 from falcon.base.time import str_to_datetime
 from falcon.base.timeframe import PERIOD_M1, PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4, \
     PERIOD_D1, PERIOD_W1, PERIOD_TICK
@@ -61,7 +62,7 @@ class BacktestRunner(MemoryQueueRunner):
         fields = line.split(',')
 
         event = TickPriceEvent(broker='Back test broker',
-                               instrument=fields[0],
+                               instrument=get_mt4_symbol(fields[0]),
                                time=str_to_datetime(fields[1], '%Y%m%d %H:%M:%S.%f'),
                                bid=Decimal(fields[2]),
                                ask=Decimal(fields[3]))
@@ -78,6 +79,11 @@ class BacktestRunner(MemoryQueueRunner):
             elif event.type in handler.subscription:
                 result = self.handle_event(handler, event)
                 re_put = result or re_put
+
+        if event.type == TickPriceEvent.type:
+            for account in self.accounts:
+                account.update_tick(event)
+
         if re_put:
             if event.tried > 10:
                 logger.error('[EVENT_RETRY] tried to many times abort, event=%s' % event)
@@ -93,10 +99,11 @@ class BacktestRunner(MemoryQueueRunner):
         # pprint(self.candle_time)
         print(self.ohlc[PERIOD_TICK][-1])
         print(
-            f'PERIOD_M1={len(runner.ohlc[PERIOD_M1])}\nPERIOD_M5={len(runner.ohlc[PERIOD_M5])}\nPERIOD_M15={len(runner.ohlc[PERIOD_M15])}\nPERIOD_M30={len(runner.ohlc[PERIOD_M30])}\nPERIOD_H1={len(runner.ohlc[PERIOD_H1])}\nPERIOD_H4={len(runner.ohlc[PERIOD_H4])}\nPERIOD_D1={len(runner.ohlc[PERIOD_D1])}\nPERIOD_W1={len(runner.ohlc[PERIOD_W1])}')
+            f'PERIOD_M1={len(self.ohlc[PERIOD_M1])}\nPERIOD_M5={len(self.ohlc[PERIOD_M5])}\nPERIOD_M15={len(self.ohlc[PERIOD_M15])}\nPERIOD_M30={len(self.ohlc[PERIOD_M30])}\nPERIOD_H1={len(self.ohlc[PERIOD_H1])}\nPERIOD_H4={len(self.ohlc[PERIOD_H4])}\nPERIOD_D1={len(self.ohlc[PERIOD_D1])}\nPERIOD_W1={len(self.ohlc[PERIOD_W1])}')
 
         print(f'Time spend {datetime.utcnow()-self.start_time}')
-        super(BacktestRunner, self).stop()
+        del self.queue
+        self.running = False
 
 
 if __name__ == '__main__':
