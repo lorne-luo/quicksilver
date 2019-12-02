@@ -1,7 +1,8 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from falcon.base.order import OrderSide, OrderType
-from falcon.base.price import profit_pip
+from falcon.base.price import profit_pip, calculate_price
 from hulk.base.models import OrderBase
 
 
@@ -50,20 +51,19 @@ class BacktestOrder:
 
 class BacktestOrderMixin(OrderBase):
     _order_sequence = 0
-    _orders = {}
 
     def _generate_order_id(self):
         self._order_sequence += 1
         return self._order_sequence
 
     def list_order(self, ids=None, state=None, instrument=None, count=20, beforeID=None):
-        return self._orders
+        return self.orders
 
     def list_pending_order(self):
         return {}
 
     def get_order(self, order_id):
-        return self._orders.get(int(order_id))
+        return self.orders.get(int(order_id))
 
     def limit_order(self, instrument, side, price, lots, take_profit=None, stop_loss=None, trailing_pip=None, **kwargs):
         raise NotImplementedError
@@ -103,9 +103,19 @@ class BacktestOrderMixin(OrderBase):
         tick = kwargs.get('tick')
         open_time = tick.time
         open_price = tick.ask if side == OrderSide.BUY else tick.bid
+
+        lots = Decimal(str(lots))
+
+        if '.' not in str(take_profit):
+            # using pips
+            take_profit = calculate_price(open_price, side, take_profit, instrument)
+        if '.' not in str(stop_loss):
+            # using pips
+            stop_loss = calculate_price(open_price, OrderSide.reverse(side), stop_loss, instrument)
+
         order = BacktestOrder(order_id, instrument, open_time, side, lots, open_price, take_profit, stop_loss)
 
-        self._orders[order_id] = order
+        self.orders[order_id] = order
         return order
 
     def take_profit(self, trade_id, price, **kwargs):
