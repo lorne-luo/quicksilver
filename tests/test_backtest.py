@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from falcon.base.order import OrderSide
@@ -8,7 +8,7 @@ from backtest.account import BacktestAccount
 from backtest.order import BacktestOrder
 
 
-def test_testback():
+def test_order():
     order = BacktestOrder(order_id=1, instrument='EURUSD', open_time=datetime.now(), side=OrderSide.BUY,
                           lots=0.1, open_price=Decimal('1.3245'),
                           take_profit=Decimal('1.3345'), stop_loss=Decimal('1.3145'))
@@ -24,16 +24,15 @@ def test_testback():
     assert order.is_closed
 
 
-def test_order():
+def test_account():
     account = BacktestAccount()
     tick = TickPriceEvent(broker='Back test broker',
                           instrument='EURUSD',
                           time=datetime.now(),
-                          bid=Decimal('1.1333'),
-                          ask=Decimal('1.1332'))
+                          bid=Decimal('1.1332'),
+                          ask=Decimal('1.1333'))
 
-    account.market_order('EURUSD', OrderSide.BUY, 0.1, take_profit=33, stop_loss=22, trailing_pip=20,
-                         tick=tick)
+    account.market_order('EURUSD', OrderSide.BUY, 0.1, take_profit=33, stop_loss=22, trailing_pip=20, tick=tick)
     assert len(account.list_order()) == 1
 
     order = account.get_order('1')
@@ -41,15 +40,50 @@ def test_order():
     assert order.open_price == tick.ask
     assert order.side == OrderSide.BUY
     assert order.lots == Decimal('0.1')
-    assert order.take_profit == Decimal('1.1365')
-    assert order.stop_loss == Decimal('1.1310')
+    assert order.take_profit == Decimal('1.1366')
+    assert order.stop_loss == Decimal('1.1311')
     assert order.open_time == tick.time
+    assert order.is_closed == False
+    assert order.max_profit == 0
+    assert order.min_profit == 0
 
-    account.market_order('EURUSD', OrderSide.SELL, 0.1, take_profit=33, stop_loss=22, trailing_pip=20,
-                         tick=tick)
+    account.market_order('EURUSD', OrderSide.SELL, 0.1, take_profit=33, stop_loss=22, trailing_pip=20, tick=tick)
     order2 = account.get_order('2')
     assert order2.open_price == tick.bid
     assert order2.side == OrderSide.SELL
-    assert order2.take_profit == Decimal('1.1300')
-    assert order2.stop_loss == Decimal('1.1355')
+    assert order2.take_profit == Decimal('1.1299')
+    assert order2.stop_loss == Decimal('1.1354')
     assert order2.open_time == tick.time
+    assert order2.is_closed == False
+
+    tick2 = TickPriceEvent(broker='Back test broker',
+                           instrument='EURUSD',
+                           time=datetime.now() + timedelta(seconds=2),
+                           bid=Decimal('1.1336'),
+                           ask=Decimal('1.1338'))
+
+    order.update_price(tick2)
+    assert order.current_time == tick2.time
+    assert order.current_price == tick2.bid
+    assert order.max_profit == 3
+    assert order.min_profit == 0
+
+    tick3 = TickPriceEvent(broker='Back test broker',
+                           instrument='EURUSD',
+                           time=datetime.now() + timedelta(seconds=4),
+                           bid=Decimal('1.1300'),
+                           ask=Decimal('1.1301'))
+
+    order.update_price(tick3)
+    assert order.current_time == tick3.time
+    assert order.current_price == tick3.bid
+    assert order.max_profit == 3
+    assert order.min_profit == -33
+
+    order.close(tick3)
+    assert order.close_time == tick3.time
+    assert order.close_price == tick3.bid
+    assert order.total_time.seconds == 4
+    assert order.profit_time.seconds == 2
+    assert order.profit_time_percent == 50
+

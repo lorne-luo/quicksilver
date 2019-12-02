@@ -2,7 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from falcon.base.order import OrderSide, OrderType
-from falcon.base.price import profit_pip, calculate_price
+from falcon.base.price import profit_pip, calculate_price, pip
 from hulk.base.models import OrderBase
 
 
@@ -21,6 +21,7 @@ class BacktestOrder:
         self.stop_loss = stop_loss
 
         self.current_price = self.open_price
+        self.current_time = self.open_time
         self.close_price = None
         self.close_time = None
         self.note = ''
@@ -44,9 +45,48 @@ class BacktestOrder:
             return self.pips * self.lots * 10
         return None
 
-    def update_price(self, new_price):
-        self.current_price = new_price
+    def update_price(self, tick):
+        if not tick.instrument == self.instrument:
+            return
         # todo update max_profit, min_profit, profit_time
+
+        if self.side == OrderSide.BUY:
+            self.current_price = tick.bid
+            profit = self.current_price - self.open_price
+        elif self.side == OrderSide.SELL:
+            self.current_price = tick.ask
+            profit = self.open_price - self.current_price
+        else:
+            raise Exception(f'Side {self.side} incorrect.')
+
+        profit = pip(self.instrument, profit)
+        if profit > self.max_profit:
+            self.max_profit = profit
+        elif profit < self.min_profit:
+            self.min_profit = profit
+
+        if profit > 0:
+            self.profit_time += tick.time - self.current_time
+        self.current_time = tick.time
+
+    @property
+    def total_time(self):
+        return self.current_time - self.open_time
+
+    @property
+    def profit_time_percent(self):
+        percent = self.profit_time / self.total_time
+        percent = Decimal(str(percent)) * 100
+        return percent.quantize(Decimal('0.01'))
+
+    def close(self, tick):
+        if not tick.instrument == self.instrument:
+            return
+        self.close_time = tick.time
+        if self.side == OrderSide.BUY:
+            self.close_price = tick.bid
+        elif self.side == OrderSide.SELL:
+            self.close_price = tick.ask
 
 
 class BacktestOrderMixin(OrderBase):
@@ -129,3 +169,9 @@ class BacktestOrderMixin(OrderBase):
 
     def cancel_order(self, order_id, **kwargs):
         raise NotImplementedError
+
+    def close_order(self, order_id, lots=None, percent=None, **kwargs):
+        tick = kwargs.get('tick')
+        order = self.orders.get(order_id)
+        if order:
+            order.close(tick)
