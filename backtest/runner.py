@@ -1,9 +1,11 @@
+import json
 import logging
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
-from queue import Queue
+from queue import Queue, Empty
 
+from falcon.base.event import BaseEvent
 from falcon.base.symbol import get_mt4_symbol
 from falcon.base.time import str_to_datetime
 from falcon.base.timeframe import PERIOD_M1, PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4, \
@@ -43,6 +45,15 @@ class BacktestRunner(MemoryQueueRunner):
         return Queue()
 
     def yield_event(self, block=False):
+        try:
+            # read from quque first
+            data = self.queue.get(block)
+            if data:
+                data = json.loads(data)
+                return BaseEvent.from_dict(data)
+        except Empty:
+            pass
+
         line = self.data_file_handler.readline()
         if line:
             self.line_count += 1
@@ -71,7 +82,13 @@ class BacktestRunner(MemoryQueueRunner):
     def loop_handlers(self, event):
         """loop handlers to process event"""
         re_put = False
+        for strategy in self.strategies:
+            # loop strategies
+            if event.type in strategy.subscription:
+                self.handle_event(strategy, event)
+
         for handler in self.handlers:
+            # loop handlers
             if '*' in handler.subscription:
                 result = self.handle_event(handler, event)
                 re_put = result or re_put
@@ -97,7 +114,6 @@ class BacktestRunner(MemoryQueueRunner):
         print(f'{self.line_count} lines processed.')
         print(f'{len(self.ohlc[PERIOD_TICK])} lines processed.')
         # pprint(self.candle_time)
-        print(self.ohlc[PERIOD_TICK][-1])
         print(
             f'PERIOD_M1={len(self.ohlc[PERIOD_M1])}\nPERIOD_M5={len(self.ohlc[PERIOD_M5])}\nPERIOD_M15={len(self.ohlc[PERIOD_M15])}\nPERIOD_M30={len(self.ohlc[PERIOD_M30])}\nPERIOD_H1={len(self.ohlc[PERIOD_H1])}\nPERIOD_H4={len(self.ohlc[PERIOD_H4])}\nPERIOD_D1={len(self.ohlc[PERIOD_D1])}\nPERIOD_W1={len(self.ohlc[PERIOD_W1])}')
 
@@ -133,7 +149,7 @@ if __name__ == '__main__':
     # ./tests/GBPUSD-2018-12-tick.csv
 
     runner = BacktestRunner('./tests/test_tick.csv', [], [DebugStrategy()],
-                            []# DebugTickPriceHandler()
+                            []  # DebugTickPriceHandler()
                             )
     print(runner.get_handler_by_type(DebugTickPriceHandler))
     print(runner.strategies)

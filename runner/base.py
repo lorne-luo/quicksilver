@@ -99,6 +99,11 @@ class BaseRunner(object):
     def loop_handlers(self, event):
         """loop handlers to process event"""
         re_put = False
+        for strategy in self.strategies:
+            # loop strategies
+            if event.type in strategy.subscription:
+                self.handle_event(strategy, event)
+
         for handler in self.handlers:
             if '*' in handler.subscription:
                 result = self.handle_event(handler, event)
