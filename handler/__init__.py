@@ -80,17 +80,17 @@ class TimeFramePublisher(BaseHandler):
     def __init__(self, timezone=0):
         self.timezone = timezone
 
-    def get_now(self):
-        now = datetime.utcnow() + relativedelta(hours=self.timezone)
-        return now
-
-    def process(self, event, context):
+    def get_now(self, event, context):
         if isinstance(event, TickPriceEvent):
             context.candle_time[PERIOD_TICK] = event.time
             now = event.time
         else:
             # by HeartBeatEvent
             now = datetime.utcnow() + relativedelta(hours=self.timezone)
+        return now
+
+    def process(self, event, context):
+        now = self.get_now(event, context)
 
         for timeframe in PERIOD_CHOICES:
             new_candle_time = get_candle_time(now, timeframe)
