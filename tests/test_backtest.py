@@ -103,7 +103,7 @@ def test_runner():
 
     account.market_order('GBPUSD', OrderSide.BUY, 0.1, take_profit=33, stop_loss=22, trailing_pip=20, tick=tick)
 
-    runner = BacktestRunner('./tests/test_tick.csv', [account])
+    runner = BacktestRunner('./tests/test_tick.csv', [account], [], [])
     runner.run()
     assert runner.line_count == 49
     order = account.get_order('1')

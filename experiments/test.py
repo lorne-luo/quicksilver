@@ -15,7 +15,6 @@ class DebugStrategy(StrategyBase):
         pass
 
 
-
 if __name__ == '__main__':
     """
     run example:
@@ -27,9 +26,9 @@ if __name__ == '__main__':
 
     account = BacktestAccount()
 
-    runner = BacktestRunner('./tests/test_tick.csv', [],
-                            # DebugTickPriceHandler(),
-                            DebugStrategy())
+    runner = BacktestRunner('./tests/test_tick.csv', [], [DebugStrategy()],
+                            []# DebugTickPriceHandler(),
+                            )
     print(runner.strategies)
 
     runner.run()

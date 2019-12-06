@@ -7,12 +7,12 @@ from runner.base import BaseRunner
 logger = logging.getLogger(__name__)
 
 
-
 class MemoryQueueRunner(BaseRunner):
     """Memory queue runner"""
 
     def create_queue(self, queue_name):
         return Queue(maxsize=2000)
+
 
 class ReisQueueRunner(BaseRunner):
     """Redis queue runner"""
@@ -37,11 +37,10 @@ class StreamRunnerBase(ReisQueueRunner):
     broker = ''
     account = None
 
-    def __init__(self, queue, pairs, *args, **kwargs):
-        super(StreamRunnerBase, self).__init__(queue)
-        if args:
-            self.register(*args)
-        self.pairs = pairs
+    def __init__(self, queue_name, accounts, strategies, handlers, *args, **kwargs):
+        super(StreamRunnerBase, self).__init__(queue_name, accounts, strategies, handlers)
+
+        self.pairs = kwargs.get('pairs')
         self.prices = self._set_up_prices_dict()
 
     def _set_up_prices_dict(self):
@@ -58,8 +57,6 @@ if __name__ == '__main__':
     # python -m event.runner
     from handler import *
 
-    r = TestRedisRunner('test_runner', [],
-                        HeartBeatHandler(),
-                        TimeFramePublisher(timezone=0))
+    r = TestRedisRunner('test_runner', [], [],
+                        [HeartBeatHandler(), TimeFramePublisher(timezone=0)])
     r.run()
-

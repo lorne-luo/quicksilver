@@ -33,8 +33,8 @@ class BacktestRunner(MemoryQueueRunner):
     max_tick_keep = 2000
     max_ohlc_keep = 50
 
-    def __init__(self, queue_name, accounts, *args, **kwargs):
-        super(BacktestRunner, self).__init__(queue_name, accounts, *args, **kwargs)
+    def __init__(self, queue_name, accounts, strategies, *args, **kwargs):
+        super(BacktestRunner, self).__init__(queue_name, accounts, strategies, *args, **kwargs)
         self.start_time = datetime.utcnow()
 
     def create_queue(self, queue_name):
@@ -132,9 +132,9 @@ if __name__ == '__main__':
     # ./tests/test_tick.csv
     # ./tests/GBPUSD-2018-12-tick.csv
 
-    runner = BacktestRunner('./tests/test_tick.csv', [],
-                            # DebugTickPriceHandler(),
-                            DebugStrategy())
+    runner = BacktestRunner('./tests/test_tick.csv', [], [DebugStrategy()],
+                            []# DebugTickPriceHandler()
+                            )
     print(runner.get_handler_by_type(DebugTickPriceHandler))
     print(runner.strategies)
 

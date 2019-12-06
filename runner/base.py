@@ -3,6 +3,7 @@ import logging
 import sys
 import time
 import traceback
+from collections import Iterable
 
 from falcon.base.event import BaseEvent
 from falcon.base.timeframe import PERIOD_TICK, PERIOD_CHOICES
@@ -22,16 +23,17 @@ class BaseRunner(object):
     heartbeat_count = 0
     handlers = [TimeFramePublisher()]
 
-    def __init__(self, queue_name, accounts, *args, **kwargs):
+    def __init__(self, queue_name, accounts, strategies, handlers, *args, **kwargs):
         self.loop_sleep = config.LOOP_SLEEP
         self.empty_sleep = config.EMPTY_SLEEP
         self.heartbeat = config.HEARTBEAT
         self.last_heartbeat = time.time()
 
-        self.accounts = accounts if type(accounts) is list else [accounts]
+        self.accounts = accounts if isinstance(accounts, Iterable) else [accounts]
+        self.strategies = strategies if isinstance(strategies, Iterable) else [strategies]
         self.queue_name = queue_name
         self.queue = self.create_queue(queue_name)
-        self.register(*args)
+        self.register(handlers)
 
         self.candle_time[PERIOD_TICK] = None
         for timeframe in PERIOD_CHOICES:
@@ -49,9 +51,9 @@ class BaseRunner(object):
     def create_queue(self, queue_name):
         raise NotImplementedError
 
-    def register(self, *args):
+    def register(self, handlers):
         """register handlers"""
-        for handler in args:
+        for handler in handlers:
             if isinstance(handler, BaseHandler):
                 self.handlers.append(handler)
 
@@ -126,10 +128,6 @@ class BaseRunner(object):
 
     def get_handler_by_type(self, handler_class):
         return [x for x in self.handlers if isinstance(x, handler_class)]
-
-    @property
-    def strategies(self):
-        return self.get_handler_by_type(StrategyBase)
 
     def get_timeframes(self):
         timeframes = set()
